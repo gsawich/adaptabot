@@ -1,8 +1,7 @@
+# Early trading algorithm to test strategies
 import time
-import sys, getopt
 import datetime
-import urllib
-from bittrex import Bittrex
+import connections
 
 
 def main(Q, MARG, PAIR, LAST):
@@ -26,12 +25,7 @@ def main(Q, MARG, PAIR, LAST):
     orderNumber = ""
     lastTrade = LAST
 
-    conn = Bittrex('596c294205a44f22ba8fa1b4adaa830e', 'fdbe7900220246459bdacada84c64687')
-
-    #order = conn.sell_limit(pair, quantity=0.1, rate=0.01)
-    #print(order)
-    #if (startTime):
-        #historicalData = conn.returnChartData(currencyPair=pair,period=period, start=(endTime-timespan))
+    conn = connections.bittrex
 
     while True:
         if (startTime and historicalData):
@@ -92,10 +86,4 @@ def main(Q, MARG, PAIR, LAST):
         if (not startTime):
             time.sleep(int(period))
 
-#main(0.15, 1.01, "BTC-ETH", 0.0846)
-#main(2500, 1.01, "BTC-SC", 0.00000275)
-#main(15, 1.01, "BTC-LBC", 0.0001423)
-#main(25, 1.005, "BTC-XEM", 0.00008277)
-#main(100, 1.007, "BTC-GNT", 0.00008935)
 main(10, 1.0125, "BTC-OMG", 0.0011)
-#main(1, 1.0075, "BTC-NEO", 0.0053)
