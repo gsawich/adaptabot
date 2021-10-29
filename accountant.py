@@ -3,7 +3,7 @@ import pprint as pp
 
 pairs = ['BTC-LBC', 'BTC-ETH', 'BTC-SC', 'BTC-XEM', 'BTC-BCC', 'BTC-OMG', 'BTC-GNT', 'BTC-NEO']
 
-bt = Bittrex('d398b9c24bfe44419c370979b25fc257', 'dbb19df7e42a4573bad41c80712921fd')
+bt = Bittrex('your api key here', 'your api secret here')
 totalprofit = 0
 best = '';
 highscore = 0;
