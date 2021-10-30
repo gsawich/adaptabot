@@ -1,3 +1,6 @@
+import traceback
+
+
 class Simulation:
     def __init__(self, runtimeIndex, isActive, marketConnection, tradingConnection, Q, MARG, PAIR, LAST, LONG, SHORT, SIGNAL, SPREAD, D):
         self.runtime = runtimeIndex
