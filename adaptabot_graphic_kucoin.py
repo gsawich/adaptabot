@@ -20,7 +20,8 @@ def main(Q, MARG, PAIR, LAST, LONG, SHORT, SIGNAL, SPREAD, BRANCHES):
     profitArray = {}
     bestSim = 0
     profitActual = 0
-    conn = connections.kucoin
+    tradingConn = connections.tradingClient
+    marketConn = connections.marketClient
     running = True
     gridSize = math.ceil(128/simulationSize)
     ticker = period - 1
@@ -40,13 +41,13 @@ def main(Q, MARG, PAIR, LAST, LONG, SHORT, SIGNAL, SPREAD, BRANCHES):
                     else:
                         isActive = False
                     mutationMatrix[3] = (1+((l-mid)/10))
-                    sim = Simulation(runIndex, isActive, conn, Q, MARG*mutationMatrix[0], PAIR, LAST, math.ceil(LONG*mutationMatrix[1]), math.floor(SHORT*mutationMatrix[2]), math.ceil(SIGNAL*mutationMatrix[3]), SPREAD, DEBUG)
+                    sim = Simulation(runIndex, isActive, marketConn, tradingConn, Q, MARG*mutationMatrix[0], PAIR, LAST, math.ceil(LONG*mutationMatrix[1]), math.floor(SHORT*mutationMatrix[2]), math.ceil(SIGNAL*mutationMatrix[3]), SPREAD, DEBUG)
                     simulationList.append(sim)
                     runIndex += 1
 
     #init graphics
     pygame.init()
-    pygame.display.set_caption("Adaptabot 3.0: %s" % (PAIR))
+    pygame.display.set_caption("Adaptabot 4.0: %s" % (PAIR))
     screen = pygame.display.set_mode(((simulationSize**2)*gridSize, (simulationSize**2)*gridSize))
     clock = pygame.time.Clock()
     clock.tick(10)
@@ -63,8 +64,8 @@ def main(Q, MARG, PAIR, LAST, LONG, SHORT, SIGNAL, SPREAD, BRANCHES):
         if (ticker % (period*1000) == 0):
             if (ticker == (period*1000) * 10): ticker = 0
             try:
-                currentValues = conn.get_tick(PAIR)
-
+                currentValues = marketConn.get_kline(PAIR,'1min')
+                print(currentValues)
                 if (ticker > 1 * period * 1000):
                     for s in simulationList:
                         thisprofit = s.run(currentValues)
@@ -111,7 +112,7 @@ def main(Q, MARG, PAIR, LAST, LONG, SHORT, SIGNAL, SPREAD, BRANCHES):
 
 
 class Simulation:
-    def __init__(self, runtimeIndex, isActive, connection, Q, MARG, PAIR, LAST, LONG, SHORT, SIGNAL, SPREAD, D):
+    def __init__(self, runtimeIndex, isActive, marketConnection, tradingConnection, Q, MARG, PAIR, LAST, LONG, SHORT, SIGNAL, SPREAD, D):
         self.runtime = runtimeIndex
         self.isActive = isActive
         self.q=Q
@@ -151,7 +152,8 @@ class Simulation:
         self.endTime = int(time.time())
         self.historicalData = False
         self.spread = SPREAD
-        self.conn = connection
+        self.tradingConn = tradingConnection
+        self.marketConn = marketConnection
         self.profitActual = 0
         self.constQ = Q
         self.debug = D
@@ -193,7 +195,7 @@ class Simulation:
                             #print("sell if statement passed")
                             if (self.isActive == True):
                                 print("SELL ORDER")
-                                self.orderNumber = self.conn.create_sell_order(self.pair, price=lastBid-self.spread, amount=self.q)
+                                self.orderNumber = self.tradingConn.create_limit_order(self.pair, 'sell', self.q, lastBid-self.spread)
                                 print(self.orderNumber)
                                 if (self.orderNumber != False):
                                     self.tradePlaced = True
@@ -205,7 +207,7 @@ class Simulation:
                                     if (len(self.listBuy) > 1): self.listBuy.pop()
 
                             else:
-                                tradeprofit = ((lastBid-self.spread)*self.q)*0.9975
+                                tradeprofit = ((lastBid-self.spread)*self.q)*0.9992
                                 self.profit += tradeprofit
                                 if (self.debug): print("(%s) : <<<SELL ORDER>>> for %s Profit: %s" % (self.runtime, tradeprofit, self.profit))
                                 self.tradePlaced = True
@@ -219,7 +221,7 @@ class Simulation:
                             #print("buy if statement passed")
                             if (self.isActive == True):
                                 print("BUY ORDER")
-                                self.orderNumber = self.conn.create_buy_order(self.pair, price=lastAsk+self.spread,  amount=self.q)
+                                self.orderNumber = self.tradingConn.create_limit_order(self.pair, 'buy', self.q, price=lastAsk+self.spread)
                                 print(self.orderNumber)
                                 if (self.orderNumber != False):
                                     self.tradePlaced = True
@@ -229,7 +231,7 @@ class Simulation:
                                     self.mod = 1
                                     if (len(self.listSell) > 1 ) : self.listSell.pop()
                             else:
-                                tradeprofit = ((lastAsk+self.spread)*self.q)*1.0025
+                                tradeprofit = ((lastAsk+self.spread)*self.q)*0.9992
                                 self.profit -= tradeprofit
                                 if (self.debug): print("(%s) : <<<BUY ORDER>>> for %s Profit: %s" % (self.runtime, tradeprofit, self.profit))
                                 self.tradePlaced = True
@@ -246,15 +248,15 @@ class Simulation:
                             self.tradePlaced = False
                             self.typeOfTrade = False
                             if ((self.isActive == True) and (self.orderNumber != None)):
-                                order = self.conn.get_order_details(self.pair, self.conn.SIDE_SELL, order_id=self.orderNumber['orderOid'])
+                                order = self.tradingConn.get_order_details(order_id=self.orderNumber['orderId'])
                                 print(order)
-                                deal = order['dealAmount'] * 0.999
+                                deal = order['dealAmount'] * 0.9992
                                 if (deal < (self.constQ/2)): deal = self.constQ
                                 self.q = deal
                                 print(self.q)
-                                self.profit += (order['dealValueTotal'] * (0.999))
-                                self.profitActual += (order['dealValueTotal'] * 0.999)
-                                self.conn.cancel_order(order_id=self.orderNumber['orderOid'], order_type='SELL')
+                                self.profit += (order['dealValueTotal'] * (0.9992))
+                                self.profitActual += (order['dealValueTotal'] * 0.9992)
+                                self.conn.cancel_order(order_id=self.orderNumber['orderId'])
 
                     elif (self.typeOfTrade == "long"):
                         if ((lastPairPrice > self.currentMovingAverage and lastPairPrice > self.currentEMA) or self.currentDiff > 0):
@@ -262,14 +264,14 @@ class Simulation:
                             self.tradePlaced = False
                             self.typeOfTrade = False
                             if ((self.isActive == True) and (self.orderNumber != None)):
-                                order = self.conn.get_order_details(self.pair, self.conn.SIDE_BUY, order_id=self.orderNumber['orderOid'])
+                                order = self.conn.get_order_details(order_id=self.orderNumber['orderId'])
                                 print(order)
                                 self.q = round(order['dealAmount'] * (1 + ((self.margin-1)/4)), 4)
                                 print(self.q)
-                                self.profit -= (order['dealValueTotal'] * 1.001)
-                                self.profitActual -= (order['dealValueTotal'] * 1.001)
+                                self.profit -= (order['dealValueTotal'] * 0.9992)
+                                self.profitActual -= (order['dealValueTotal'] * 0.9992)
                                 print("Profit = %s" % (self.profit))
-                                self.conn.cancel_order(order_id=self.orderNumber['orderOid'], order_type='BUY')
+                                self.conn.cancel_order(order_id=self.orderNumber['orderId'])
 
 
                 if (self.isActive == True):
@@ -303,4 +305,4 @@ class Simulation:
         return self.q
 
 if __name__ == "__main__":
-    main(0.05, 1.0045, "BTC-USDT", 6580, 100, 15, 10, 0.5, 7)
+    main(0.005, 1.0045, "BTC-USDT", 60000, 100, 15, 10, 0.5, 7)
